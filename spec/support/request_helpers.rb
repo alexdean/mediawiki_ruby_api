@@ -26,9 +26,14 @@ module MediawikiApi
       stub_api_request(method, params.merge(action: action, token: mock_token))
     end
 
-    def stub_login_request(username, password, token = nil)
-      params = { action: 'login', lgname: username, lgpassword: password }
-      params[:lgtoken] = token unless token.nil?
+    def stub_login_request(username, password)
+      login_token = 't123'
+
+      stub_request(:get, api_url).
+        with(query: { format: 'json', action: 'query', meta: 'tokens', type: 'login' }).
+        to_return(body: { query: { tokens: { logintoken: login_token } } }.to_json)
+
+      params = { action: 'login', lgname: username, lgpassword: password, lgtoken: login_token }
 
       stub_api_request(:post, params)
     end

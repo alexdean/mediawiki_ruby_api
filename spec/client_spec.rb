@@ -195,55 +195,34 @@ describe MediawikiApi::Client do
 
   describe '#log_in' do
     it 'logs in when API returns Success' do
+      token = 't123'
+
+      stub_request(:get, api_url).
+        with(query: { format: 'json', action: 'query', meta: 'tokens', type: 'login' }).
+        to_return(body: { query: { tokens: { logintoken: token } } }.to_json)
+
       stub_request(:post, api_url).
-        with(body: { format: 'json', action: 'login', lgname: 'Test', lgpassword: 'qwe123' }).
+        with(body: { format: 'json', action: 'login', lgname: 'Test', lgpassword: 'qwe123', lgtoken: token }).
         to_return(body: { login: body_base.merge(result: 'Success') }.to_json)
 
       subject.log_in 'Test', 'qwe123'
       expect(subject.logged_in).to be true
     end
 
-    context 'when API returns NeedToken' do
-      context 'and a token was not given' do
-        before do
-          stub_login_request('Test', 'qwe123').
-            to_return(
-              body: { login: body_base.merge(result: 'NeedToken', token: '456') }.to_json,
-              headers: { 'Set-Cookie' => 'prefixSession=789; path=/; domain=localhost; HttpOnly' }
-            )
+    context 'when a token is given' do
+      token = 't123'
 
-          @success_req = stub_login_request('Test', 'qwe123', '456').
-            with(headers: { 'Cookie' => 'prefixSession=789' }).
-            to_return(body: { login: body_base.merge(result: 'Success') }.to_json)
-        end
+      it 'uses the given token to perform a login' do
+        stub_request(:post, api_url).
+          with(body: { format: 'json', action: 'login', lgname: 'Test', lgpassword: 'qwe123', lgtoken: token }).
+          to_return(body: { login: body_base.merge(result: 'Success') }.to_json)
 
-        it 'logs in' do
-          response = subject.log_in('Test', 'qwe123')
-
-          expect(response).to include('result' => 'Success')
-          expect(subject.logged_in).to be true
-        end
-
-        it 'sends second request with token and cookies' do
-          subject.log_in('Test', 'qwe123')
-
-          expect(@success_req).to have_been_requested
-        end
-      end
-
-      context 'but a token was already provided' do
-        subject { client.log_in('Test', 'qwe123', '123') }
-
-        it 'should raise a LoginError' do
-          stub_login_request('Test', 'qwe123', '123').
-            to_return(body: { login: body_base.merge(result: 'NeedToken', token: '456') }.to_json)
-
-          expect { subject }.to raise_error(MediawikiApi::LoginError)
-        end
+        subject.log_in 'Test', 'qwe123', token
+        expect(subject.logged_in).to be true
       end
     end
 
-    context 'when API returns neither Success nor NeedToken' do
+    context 'when API does not return Success' do
       before do
         stub_login_request('Test', 'qwe123').
           to_return(body: { login: body_base.merge(result: 'EmptyPass') }.to_json)

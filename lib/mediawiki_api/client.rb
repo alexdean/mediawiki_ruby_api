@@ -120,8 +120,12 @@ module MediawikiApi
     end
 
     def log_in(username, password, token = nil)
-      params = { lgname: username, lgpassword: password, token_type: false }
-      params[:lgtoken] = token unless token.nil?
+      params = {
+        lgname: username,
+        lgpassword: password,
+        lgtoken: token || get_token(:login),
+        token_type: false
+      }
 
       data = action(:login, params).data
 
@@ -129,9 +133,6 @@ module MediawikiApi
       when 'Success'
         @logged_in = true
         @tokens.clear
-      when 'NeedToken'
-        raise LoginError, "failed to log in with the returned token '#{token}'" unless token.nil?
-        data = log_in(username, password, data['token'])
       else
         raise LoginError, data['result']
       end
